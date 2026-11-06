@@ -24,7 +24,19 @@ npm run dev
 
 Open http://localhost:3000. API documentation: http://localhost:8000/docs. Both frontend and backend must use the same hostname (use `localhost`, not a mixture of `localhost` and `127.0.0.1`) for the session cookie.
 
-Demo login: healthcare provider `doctor001` / `Doctor@123`; administrator `admin001` / `Admin@123`. These credentials and the authentication mechanism are for local demonstrations only. Sessions are held in backend memory and expire on restart; cookies are HTTP-only. This is not production authentication.
+## Test credentials
+
+Run the seed script above to create these accounts on a fresh checkout:
+
+| Role | User ID | Password | Available in |
+| --- | --- | --- | --- |
+| Healthcare provider | `doctor001` | `Doctor@123` | Web and Android |
+| Administrator | `admin001` | `Admin@123` | Web |
+| ASHA worker | `asha001` | `Asha@123` | Android |
+
+On Android, choose your own numeric offline PIN of at least six digits when signing in online (for example, `123456` for local testing). There is no preset PIN; use the one you chose to unlock the account offline.
+
+These credentials and the authentication mechanism are for local testing only. Web sessions are held in backend memory and expire on restart; cookies are HTTP-only. This is not production authentication.
 
 ## Storage and reset
 
@@ -65,7 +77,7 @@ The Expo client lives in `mobile/` and shares the FastAPI JSON data. It uses the
 
 4. Press `a` to open the Android emulator using Expo Go. For a local native development build instead, run `npx expo run:android` after installing the required Android SDK and Java tools. When changing native plugins or app configuration, rebuild that native app. Cleartext HTTP is configured for this local development prototype; use HTTPS for any real deployment.
 
-Demo mobile accounts: `asha001` / `Asha@123` and `doctor001` / `Doctor@123`. Online sign-in creates a PIN-protected offline unlock for up to seven days. Doctor mobile access is deliberately limited to demo unit MU001; ASHA access is limited to assigned patients. Backend-issued mobile tokens currently expire after eight hours and are held in memory by the server; sign in again after expiry or backend restart. Explicit logout removes the saved offline unlock.
+Online sign-in creates a PIN-protected offline unlock for up to seven days. Doctor mobile access is deliberately limited to demo unit MU001; ASHA access is limited to assigned patients. Backend-issued mobile tokens currently expire after eight hours and are held in memory by the server; sign in again after expiry or backend restart. Explicit logout removes the saved offline unlock.
 
 The app caches assigned patients and histories in SQLite, queues new patients and visits locally, and sends pending operations to the same backend. Operation IDs are recorded with JSON entities for retry deduplication; only one backend instance may write. Pulls are full scoped snapshots, not incremental cursors. A patient whose access is revoked is hidden on the next successful pull; pending edits remain in the outbox for resolution. The server cannot revoke an already cached offline copy until the device reconnects.
 
