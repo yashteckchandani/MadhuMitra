@@ -1,0 +1,18 @@
+import React,{createContext,useContext,useEffect,useState} from 'react';
+import * as SecureStore from 'expo-secure-store';
+import * as Crypto from 'expo-crypto';
+import {request} from './api';
+import {initialize,applyBootstrap,outbox,acknowledge,markError,getMeta} from './database';
+const key='madhumitra-offline-account';
+type User={id:string,name:string,role:'asha'|'doctor',token:string,expires:number};
+const Context=createContext<any>(null);
+let syncing=false;
+export function SessionProvider({children}:{children:React.ReactNode}){const [user,setUser]=useState<User|null>(null),[ready,setReady]=useState(false),[syncingState,setSyncing]=useState(false),[status,setStatus]=useState('Not synced'),[pending,setPending]=useState(0),[version,setVersion]=useState(0);
+useEffect(()=>{initialize().then(()=>setReady(true)).catch(()=>setStatus('Could not open local database'))},[]);
+const refresh=async(u:User)=>{setPending((await outbox(u.id)).length);setVersion(v=>v+1)};
+const login=async(id:string,password:string,role:string,pin:string)=>{if(!/^\d{6,}$/.test(pin))throw Error('Choose a PIN of at least 6 digits.');const data=await request('/mobile/auth/login',undefined,{method:'POST',body:JSON.stringify({user_id:id,password,role})});const u={...data.user,token:data.access_token,expires:data.expires_at};const salt=Crypto.randomUUID();const hash=await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256,salt+pin);await SecureStore.setItemAsync(key,JSON.stringify({user:u,salt,hash,offlineUntil:Date.now()+7*24*3600*1000,attempts:0}));setUser(u);await refresh(u);return u};
+const unlock=async(pin:string)=>{const raw=await SecureStore.getItemAsync(key);if(!raw)throw Error('Sign in online first to enable offline unlock.');const saved=JSON.parse(raw);if(Date.now()>saved.offlineUntil)throw Error('Offline access expired. Sign in online again.');if(saved.attempts>=5)throw Error('Too many attempts. Sign in online again.');const hash=await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256,saved.salt+pin);if(hash!==saved.hash){saved.attempts++;await SecureStore.setItemAsync(key,JSON.stringify(saved));throw Error('Incorrect PIN.');}saved.attempts=0;await SecureStore.setItemAsync(key,JSON.stringify(saved));setUser(saved.user);await refresh(saved.user)};
+const sync=async(u:User=user!)=>{if(!u||syncing)return;syncing=true;setSyncing(true);try{if(u.expires*1000<Date.now())throw Error('Your online session expired. Sign in online again to sync.');const initial=await request('/mobile/bootstrap',u.token);await applyBootstrap(u.id,initial);let op;while((op=(await outbox(u.id))[0])){if(op.kind==='visit_create'&&JSON.parse(op.data).patient_id.startsWith('LOCAL-'))throw Error('A patient must sync before its visit.');try{const result=await request('/mobile/sync/push',u.token,{method:'POST',body:JSON.stringify({operation_id:op.id,kind:op.kind,payload:JSON.parse(op.data)})});await acknowledge(u.id,op,result)}catch(e:any){await markError(u.id,op.id,e.message);throw e}}const data=await request('/mobile/bootstrap',u.token);await applyBootstrap(u.id,data);setStatus('All changes synchronized successfully.');await refresh(u)}catch(e:any){setStatus(e.message||'Server unavailable. Changes remain on this device.');await refresh(u)}finally{syncing=false;setSyncing(false)}};
+const logout=async()=>{if(user){try{await request('/mobile/auth/logout',user.token,{method:'POST'})}catch{}}await SecureStore.deleteItemAsync(key);setUser(null)};
+return <Context.Provider value={{user,ready,login,unlock,logout,sync,refresh,status,pending,version,syncing:syncingState}}>{children}</Context.Provider>}
+export function useSession(){return useContext(Context)}

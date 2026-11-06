@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "MadhuMitra",
+    "slug": "madhumitra",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/brand/icon.png",
+    "scheme": "madhumitra",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "org.madhumitra.diabetescare"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff",
+          "image": "./assets/brand/icon.png",
+          "imageWidth": 180
+        }
+      ],
+      "expo-sqlite",
+      "expo-secure-store",
+      "expo-build-properties",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
